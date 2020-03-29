@@ -5,7 +5,7 @@ Population = 500;
 GlobalSettings = {};
 Sliders = [];
 
-function setupSlider(min, max, val, step, title, global, map, unit, rt = false) {
+function setupSlider(min, max, val, step, title, global, map, unit, rt = false, fixed = 0) {
 
   GlobalSettings[global] = val;
 
@@ -35,7 +35,8 @@ function setupSlider(min, max, val, step, title, global, map, unit, rt = false) 
     "valueDiv":valueDiv,
     "global": global,
     "map":map,
-    "unit":unit
+    "unit":unit,
+    "fixed":fixed
   });
 }
 
@@ -96,6 +97,7 @@ class Person {
     this.state = state;
     this.speed = random(global("minSpeed"), global("maxSpeed"));
     this.vel = p5.Vector.fromAngle(random(0, TWO_PI));
+    this.socialDist = random(0,1);
 
     this.nav = this.calcNav();
     this.navid = this.nav.add(this);
@@ -128,8 +130,21 @@ class Person {
     // }
 
     this.vel = p5.Vector.sub(this.target,this.pos).normalize();
-    this.vel.rotate(random(-0.1, 0.1));
+    // this.vel.rotate(random(-0.1, 0.1));
     // console.log(this.target + " " + this.pos);
+
+    let socialSum = createVector(0,0);
+    if (this.socialDist < global("socialChance")) {
+      this.nav.people.forEach(v => {
+        if (v != null && this.pos.dist(v.pos) < global("socialRad")) {
+          socialSum.add(p5.Vector.sub(this.pos,v.pos).normalize());
+        }
+      });      
+    }
+    socialSum.setMag(global("socialForce"));
+    this.vel.add(socialSum);
+    this.vel.normalize();
+
     
 
     this.pos.add(p5.Vector.mult(this.vel, this.speed * (deltaTime / 1000) * global("speed")));
@@ -165,7 +180,7 @@ class Person {
 
     if (this.state == 1) {
       this.nav.people.forEach(v => {
-        if (v != null && this.pos.dist(v.pos) < this.infRad + v.size && v.state == 0) {
+        if (v != null && v.state == 0 && this.pos.dist(v.pos) < this.infRad + v.size) {
           let r = random(0, 1);
           if (r < global("infChance") * deltaTime * 0.01 * global("speed")) {
             v.state = 1;
@@ -247,6 +262,9 @@ function setup() {
   setupSlider(0, 100, 5, 1, "Centers", "centers",1,"");
   setupSlider(0, 1, 0.1, 0.01, "Center visit chance", "centerChance",100,"%",true);
   setupSlider(0, 500, 250, 1, "Center attraction", "centerAttr",1,"px",true);
+  setupSlider(0, 128, 0, 1, "Social distancing radius", "socialRad",1,"px",true);
+  setupSlider(0, 1, 0, 0.01, "Social distancing chance", "socialChance",100,"%",true);
+  setupSlider(0, 10, 0, 0.1, "Social distancing force", "socialForce",1,"x",true,1);
   
   resetButton = createButton("Reset");
   resetButton.position(128, 0);
@@ -328,7 +346,7 @@ function draw() {
   }
 
   Sliders.forEach(slider => {
-    slider.valueDiv.html((slider.slider.value() * slider.map).toFixed(0) + " " + slider.unit);
+    slider.valueDiv.html((slider.slider.value() * slider.map).toFixed(slider.fixed) + " " + slider.unit);
     GlobalSettings[slider.global] = slider.slider.value();
   });
 
