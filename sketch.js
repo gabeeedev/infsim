@@ -5,27 +5,30 @@ Population = 500;
 GlobalSettings = {};
 Sliders = [];
 
-function setupSlider(min, max, val, step, title, global, map, unit) {
+function setupSlider(min, max, val, step, title, global, map, unit, rt = false) {
 
   GlobalSettings[global] = val;
 
   pos = 64 + Sliders.length * 48;
   titleDiv = createDiv(title);
-  titleDiv.position(16, pos);
+  titleDiv.position(0, pos);
   titleDiv.size(BarWidth-64-32, 32);
-  titleDiv.style("color", "#DDD");
+  titleDiv.style("color", rt ? "#6CF" : "#DDD");
   titleDiv.style("font-size", "18px");
+  titleDiv.parent(sideBar);
 
   valueDiv = createDiv(val*map + " " + unit);
-  valueDiv.position(BarWidth-64-16, pos);
+  valueDiv.position(BarWidth-112, pos);
   valueDiv.size(64, 32);
   valueDiv.style("color", "#DDD");
   valueDiv.style("font-size", "18px");
   valueDiv.style("text-align", "right");
+  valueDiv.parent(sideBar);
 
   slider = createSlider(min, max, val, step);
-  slider.position(16, pos + 20);
-  slider.size(BarWidth-32, 16);
+  slider.position(0, pos + 20);
+  slider.size(BarWidth-48, 16);
+  slider.parent(sideBar);
 
   Sliders.push({
     "slider": slider,
@@ -93,9 +96,11 @@ class Person {
     this.state = state;
     this.speed = random(global("minSpeed"), global("maxSpeed"));
     this.vel = p5.Vector.fromAngle(random(0, TWO_PI));
+
     this.nav = this.calcNav();
     this.navid = this.nav.add(this);
     this.target = this.getRandomCoord();
+    
     this.size = global("size") + random(-global("randSize"),global("randSize"));
     this.infRad = global("infRad") + random(-global("randInfRad"),global("randInfRad"));
   }
@@ -131,7 +136,24 @@ class Person {
     clampToArea(this.pos);
 
     if (this.pos.dist(this.target) < this.size) {
-      this.target = this.getRandomCoord();
+      
+      let ct = null;
+      if (random(0,1) < global("centerChance")) {
+        let t = [];
+        centers.forEach(v => {
+          if (v.pos.dist(this.pos) < global("centerAttr")) {
+            t.push(v);
+          }
+        });
+        if (t.length > 0) {
+          ct = t[Math.floor(random(0,t.length))];
+          this.target = ct.pos;
+        }
+      }
+
+      if (ct == null) {
+        this.target = this.getRandomCoord();        
+      }
     }
 
     let curNav = this.calcNav();
@@ -187,28 +209,50 @@ class Person {
   }
 }
 
+class Center {
+  constructor() {
+    this.pos = createVector(random(start.x+16,end.x-16),random(start.y+16,end.y-16))
+  }
+
+  draw() {
+    noFill();
+    stroke(color(255,255,0));
+    strokeWeight(4);
+    ellipse(this.pos.x, this.pos.y, 32, 32);
+  }
+}
+
 function setup() {
 
   Colors = [color(50, 150, 50), color(150, 50, 50), color(0, 150, 200), color(0, 0, 0)];
 
-  setupSlider(0.1, 10, 1, 0.1, "Simulation speed", "speed",1,"x");
+  sideBar = createDiv();
+  sideBar.position(16,16);
+  sideBar.size(BarWidth-24,windowHeight-16);
+  sideBar.style("overflow-y","auto");
+
+  setupSlider(0.1, 10, 1, 0.1, "Simulation speed", "speed",1,"x",true);
   setupSlider(1, 64, 4, 1, "Size", "size",1,"px");
   setupSlider(1, 16, 1, 1, "Randomized size", "randSize",1,"px");
   setupSlider(1, 128, 16, 1, "Infection radius", "infRad",1,"px");
   setupSlider(1, 16, 4, 1, "Randomized inf. radius", "randInfRad",1,"px");
-  setupSlider(0, 1, 0.2, 0.01, "Infection chance", "infChance",100,"%");
-  setupSlider(0, 20, 10, 1, "Recovery delay", "recovDelay",1,"s");
-  setupSlider(0, 1, 0.025, 0.01, "Recovery chance", "recovChance",100,"%");
-  setupSlider(0, 20, 15, 1, "Death delay", "deathDelay",1,"s");
-  setupSlider(0, 1, 0.01, 0.01, "Death chance", "deathChance",100,"%");
-  setupSlider(0, 500, 250, 1, "Move distance", "moveDist",1,"px");
+  setupSlider(0, 1, 0.2, 0.01, "Infection chance", "infChance",100,"%",true);
+  setupSlider(0, 20, 10, 1, "Recovery delay", "recovDelay",1,"s",true);
+  setupSlider(0, 1, 0.025, 0.01, "Recovery chance", "recovChance",100,"%",true);
+  setupSlider(0, 20, 15, 1, "Death delay", "deathDelay",1,"s",true);
+  setupSlider(0, 1, 0.01, 0.01, "Death chance", "deathChance",100,"%",true);
+  setupSlider(0, 500, 250, 1, "Move distance", "moveDist",1,"px",true);
   setupSlider(0, 100, 20, 1, "Min speed", "minSpeed",1,"px/s");
-  setupSlider(0, 100, 60, 1, "Min speed", "maxSpeed",1,"px/s");
-
+  setupSlider(0, 100, 60, 1, "Max speed", "maxSpeed",1,"px/s");
+  setupSlider(0, 100, 5, 1, "Centers", "centers",1,"");
+  setupSlider(0, 1, 0.1, 0.01, "Center visit chance", "centerChance",100,"%",true);
+  setupSlider(0, 500, 250, 1, "Center attraction", "centerAttr",1,"px",true);
+  
   resetButton = createButton("Reset");
-  resetButton.position(144, 16);
+  resetButton.position(128, 0);
   resetButton.size(96, 32);
   resetButton.mousePressed(reset);
+  resetButton.parent(sideBar);
   populationInput = createInput("500", "number");
   populationInput.position(16, 16);
   populationInput.size(96, 32);
@@ -221,7 +265,6 @@ function reset() {
 
 
   createCanvas(windowWidth - 16, windowHeight - 16);
-  console.log(windowWidth + " " + windowHeight);
   start = createVector(BarWidth, 8);
   end = createVector(width - 8, height - 256);
   center = p5.Vector.sub(end, start).mult(0.5);
@@ -241,6 +284,12 @@ function reset() {
 
   for (let i = 0; i < Population; i++) {
     people[i] = new Person(0)
+  }
+
+  centers = [];
+
+  for (let i = 0; i < global("centers"); i++) {
+    centers.push(new Center());
   }
 
   people[0].state = 1;
@@ -268,13 +317,18 @@ function draw() {
   stroke(255, 255, 255, 255);
   strokeWeight(2);
   rect(start.x, start.y, area.x, area.y);
+
+  centers.forEach(v => {
+    v.draw();
+  });
+
   for (let i = 0; i < people.length; i++) {
     people[i].tick();
     people[i].draw();
   }
 
   Sliders.forEach(slider => {
-    slider.valueDiv.html((slider.slider.value() * slider.map) + " " + slider.unit);
+    slider.valueDiv.html((slider.slider.value() * slider.map).toFixed(0) + " " + slider.unit);
     GlobalSettings[slider.global] = slider.slider.value();
   });
 
